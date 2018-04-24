@@ -64,11 +64,12 @@ func SetLogger(l *zap.Logger) func(*Exporter) error {
 // Generally only used when create a new Exporter.
 func SetAddress(addr string) func(*Exporter) error {
 	return func(e *Exporter) error {
-		host, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			return errors.Wrapf(err, "invalid address")
-		}
-		e.addr = net.JoinHostPort(host, port)
+		//host, port, err := net.SplitHostPort(addr)
+		//if err != nil {
+		//	return errors.Wrapf(err, "invalid address")
+		//}
+		//e.addr = net.JoinHostPort(host, port)
+		e.addr = addr
 		return nil
 	}
 }
