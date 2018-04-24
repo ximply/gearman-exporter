@@ -101,24 +101,42 @@ func (e *Exporter) Run() error {
 		return errors.Wrap(err, "failed to register metrics")
 	}
 
-	http.HandleFunc("/healthz", e.healthz)
-	http.Handle("/metrics", promhttp.Handler())
 	stopChan := make(chan os.Signal)
 	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
 
-	srv := &http.Server{Addr: e.addr}
 	var g errgroup.Group
+
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+                        <head><title>Gearman Exporter</title></head>
+                        <body>
+                        <h1>Gearman Exporter</h1>
+                        <p><a href="` + "/metrics" + `">Metrics</a></p>
+                        </body>
+                        </html>`))
+	})
+	server := http.Server{
+		Handler: mux, // http.DefaultServeMux,
+	}
+	os.Remove(e.addr)
+
+	listener, err := net.Listen("unix", e.addr)
+	if err != nil {
+		panic(err)
+	}
 
 	g.Go(func() error {
 		// TODO: allow TLS
-		return srv.ListenAndServe()
+		return server.Serve(listener)
 	})
 	g.Go(func() error {
 		<-stopChan
 		// XXX: should shutdown time be configurable?
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_ = srv.Shutdown(ctx)
+		_ = server.Shutdown(ctx)
 		return nil
 	})
 
