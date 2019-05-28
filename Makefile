@@ -1,25 +1,20 @@
-NAME := gearman-exporter
-PLATFORMS := linux/amd64 darwin/amd64
-VERSION := $(shell git describe --tags --abbrev=0)
+BUILD_VERSION   := v1.0.0
+BUILD_NAME      := gearman_exporter
+TARGET_DIR      := ./release
+COMMIT_SHA1     := $(shell git rev-parse HEAD || echo unsupported)
 
-temp = $(subst /, ,$@)
-os = $(word 1, $(temp))
-arch = $(word 2, $(temp))
+all:
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+        go build \
+        -a -ldflags -extldflags=-static \
+        -ldflags  "-X 'main.buildTime=`date "+%Y-%m-%d %H:%M:%S"`' -X 'main.goVersion=`go version`' -X main.buildName=${BUILD_NAME} -X main.commitID=${COMMIT_SHA1}" \
+        -o ${BUILD_NAME}
 
-.PHONY: build
-build: $(PLATFORMS)
+clean:
+        rm ${BUILD_NAME} -f
 
-.PHONY: $(PLATFORMS)
-$(PLATFORMS):
-	CGO_ENABLED=0 GOOS=$(os) GOARCH=$(arch) go build -o $(NAME).$(os).$(arch) ./cmd/$(NAME)
+release:
+        mkdir -p ${TARGET_DIR}
+        cp ${BUILD_NAME} ${TARGET_DIR} -f
 
-.PHONY: docker-build
-docker-build:
-	docker build -t gearmanexporter/gearman-exporter:latest .
-
-.PHONY: docker-push
-docker-push:
-	docker login -u "$(DOCKER_USERNAME)" -p "$(DOCKER_PASSWORD)"
-	docker tag gearmanexporter/gearman-exporter:latest gearmanexporter/gearman-exporter:$(VERSION)
-	docker push gearmanexporter/gearman-exporter:latest
-	docker push gearmanexporter/gearman-exporter:$(VERSION)
+.PHONY : all clean release ${BUILD_NAME}
